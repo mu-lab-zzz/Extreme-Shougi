@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-select=no">
+    <title>闇の将棋アプリ - 完全対面レイアウト（後手持ち駒・ステータス反転）版</title>
+    <style>
+        :root{
+            --board-a:#c99a5b;
+            --board-b:#a97b3f;
+            --board-line:rgba(74,48,20,0.55);
+            --frame-dark:#3d2611;
+            --frame-light:#7a4f26;
+            --koma-a:#f2e2ba;
+            --koma-b:#e6cf98;
+            --koma-edge:#8a6531;
+            --ink-sente:#16213d;
+            --ink-sente-promoted:#1f6e3d;
+            --ink-gote:#7a1620;
+            --ink-gote-promoted:#b6531a;
+        }
+        body {
+            font-family: "Hiragino Mincho ProN", "Yu Mincho", "Hiragino Sans", sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background:
+                radial-gradient(1200px 600px at 50% -10%, #2a2016 0%, #14100b 55%, #0b0906 100%);
+            color: #d8c9a0;
+            margin: 0;
+            padding: 10px;
+            touch-action: manipulation;
+        }
+        h1 {
+            font-size: 1.2rem;
+            letter-spacing: .08em;
+            margin: 8px 0;
+            color: #d8c9a0;
+            text-shadow: 0 1px 0 rgba(0,0,0,.6);
+        }
+        .hand-area {
+            display: flex;
+            gap: 8px;
+            width: min(94.5vw, 450px);
+            min-height: 52px;
+            background: linear-gradient(160deg,#2a2015,#1b140c);
+            margin: 5px 0;
+            padding: 6px 10px;
+            border-radius: 10px;
+            align-items: center;
+            box-sizing: border-box;
+            box-shadow: 0 8px 18px -8px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.06) inset;
+        }
+        /* 後手持ち駒：DOM構造は先手と同一。表示だけをCSSのtransformで180度反転させる */
+        #gote-hand {
+            transform: rotate(180deg);
+        }
+
+        .hand-piece {
+            position: relative;
+            width: 42px;
+            height: 46px;
+            flex: 0 0 auto;
+            cursor: pointer;
+            user-select: none;
+        }
+        .hand-piece .koma {
+            width: 100%;
+            height: 100%;
+        }
+        .hand-label {
+            font-size: 11px;
+            letter-spacing: .1em;
+            color: #a8925f;
+            white-space: nowrap;
+            padding: 0 8px;
+        }
+        .hand-count {
+            position: absolute;
+            bottom: -4px;
+            right: -4px;
+            background-color: #3d2611;
+            color: #e8d3a0;
+            font-size: 10px;
+            padding: 1px 5px;
+            border-radius: 8px;
+            font-weight: normal;
+            box-shadow: 0 1px 3px rgba(0,0,0,.5);
+        }
+        #board-container {
+            position: relative;
+            width: min(94.5vw, 450px);
+            height: min(94.5vw, 450px);
+            padding: 14px;
+            box-sizing: border-box;
+            border-radius: 6px;
+            background: linear-gradient(155deg, var(--frame-light) 0%, var(--frame-dark) 55%, #1c1006 100%);
+            box-shadow:
+                0 30px 60px -20px rgba(0,0,0,.85),
+                0 2px 0 rgba(255,255,255,.06) inset,
+                0 -6px 14px rgba(0,0,0,.55) inset;
+        }
+        #board {
+            display: grid;
+            grid-template-columns: repeat(9, 1fr);
+            grid-template-rows: repeat(9, 1fr);
+            width: 100%;
+            height: 100%;
+            background:
+                repeating-linear-gradient(100deg, rgba(255,255,255,.05) 0px, rgba(255,255,255,0) 2px 26px),
+                linear-gradient(160deg, var(--board-a), var(--board-b) 60%, #9c7238 100%);
+            border-radius: 2px;
+            box-shadow:
+                0 2px 0 rgba(255,255,255,.25) inset,
+                0 -10px 24px rgba(0,0,0,.35) inset;
+        }
+        .cell {
+            width: 100%;
+            height: 100%;
+            background-color: transparent;
+            border-right: 1px solid var(--board-line);
+            border-bottom: 1px solid var(--board-line);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            font-size: min(5vw, 20px);
+            cursor: pointer;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
+            position: relative;
+        }
+        .koma {
+            position: relative;
+            width: 82%;
+            height: 86%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            clip-path: polygon(50% 2%, 92% 24%, 92% 98%, 8% 98%, 8% 24%);
+            background: linear-gradient(160deg, var(--koma-a) 0%, var(--koma-b) 55%, #d8bd85 100%);
+            box-shadow:
+                0 3px 5px rgba(0,0,0,.45),
+                0 0 0 1px var(--koma-edge) inset,
+                0 2px 0 rgba(255,255,255,.55) inset;
+        }
+        .koma::after {
+            content: "";
+            position: absolute;
+            inset: 6%;
+            clip-path: polygon(50% 3%, 90% 26%, 90% 97%, 10% 97%, 10% 26%);
+            box-shadow: 0 0 0 1px rgba(255,255,255,.35) inset;
+            pointer-events: none;
+        }
+        .koma span {
+            font-weight: 700;
+            line-height: 1;
+            font-size: min(4.6vw, 19px);
+            letter-spacing: -1px;
+            text-shadow: 0 1px 0 rgba(255,255,255,.4);
+        }
+        .koma.gote { transform: rotate(180deg); }
+        .koma.king {
+            background: linear-gradient(160deg,#f7e9c2,#eccf8f 55%,#dcb877 100%);
+            box-shadow:
+                0 4px 8px rgba(0,0,0,.5),
+                0 0 0 1px #b48a3e inset,
+                0 0 0 3px rgba(255,215,120,.35) inset,
+                0 2px 0 rgba(255,255,255,.6) inset;
+        }
+        .gote {
+            transform: rotate(180deg);
+            color: #c00;
+        }
+        .sente {
+            color: #00c;
+        }
+        .promoted-text {
+            color: #d84315 !important;
+        }
+        .sente.promoted-text {
+            color: #2e7d32 !important;
+        }
+        .selected {
+            background-color: #ffeb3b !important;
+        }
+        .last-move-from {
+            background-color: #ffe0b2 !important;
+        }
+        .last-move-to {
+            background-color: #ffcc80 !important;
+        }
+        .invincible-piece {
+            background-color: #ffd700 !important;
+            animation: pulse 1.5s infinite alternate;
+        }
+        .huge-piece {
+            background-color: #ff5252 !important;
+            color: #fff !important;
+            font-size: min(10vw, 42px) !important;
+            border: 3px dashed #fff;
+            box-shadow: 0 0 15px rgba(255,0,0,0.5);
+            z-index: 10;
+        }
+        .huge-piece.sente { color: #00e5ff !important; border-color: #00e5ff; }
+        .huge-piece.gote { color: #ffeb3b !important; border-color: #ffeb3b; }
+
+        @keyframes pulse {
+            0% { box-shadow: inset 0 0 5px #fff; }
+            100% { box-shadow: inset 0 0 15px #ffb300; }
+        }
+        .checking-piece {
+            box-shadow: inset 0 0 0 3px #ff1744 !important;
+        }
+        .legal-marker {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: min(4vw, 16px);
+            color: rgba(76, 220, 120, 0.9);
+            text-shadow: 0 0 4px rgba(0,0,0,.6);
+            pointer-events: none;
+            z-index: 5;
+        }
+        
+        .status-box {
+            font-size: 0.95rem;
+            font-weight: bold;
+            margin: 5px 0;
+            padding: 8px 10px;
+            border-radius: 10px;
+            background: linear-gradient(160deg,#2a2015,#1b140c);
+            box-shadow: 0 8px 18px -8px rgba(0,0,0,.6), 0 1px 0 rgba(255,255,255,.06) inset;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            width: min(94.5vw, 450px);
+            box-sizing: border-box;
+        }
+        #status-gote {
+            transform: rotate(180deg);
+            color: #e05b5b;
+            border: 1px solid rgba(224, 91, 91, 0.25);
+        }
+        #status-sente {
+            color: #6a8fe0;
+            border: 1px solid rgba(106, 143, 224, 0.25);
+        }
+
+        #promote-ui {
+            display: none;
+            position: absolute;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 6px 10px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+            z-index: 100;
+            gap: 10px;
+            border: 2px solid #4caf50;
+        }
+        .promote-btn {
+            padding: 6px 14px;
+            font-weight: bold;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .btn-yes { background-color: #4caf50; color: white; }
+        .btn-no { background-color: #e0e0e0; color: #333; }
+    </style>
+</head>
+<body>
+
+    <h1>闇 of 将棋 (Step 4.2)</h1>
+    
+    <!-- 【配置移動】最上部に後手用ステータスと後手持ち駒を集約 -->
+    <div id="status-gote" class="status-box">後手（赤）の画面：対局開始</div>
+    <div id="gote-hand" class="hand-area"></div>
+    
+    <!-- 中央：将棋盤 -->
+    <div id="board-container">
+        <div id="promote-ui">
+            <button class="promote-btn btn-yes" id="btn-promote-yes">成る</button>
+            <button class="promote-btn btn-no" id="btn-promote-no">成らず</button>
+        </div>
+        <div id="board"></div>
+    </div>
+    
+    <!-- 最下部：先手持ち駒と先手用ステータス -->
+    <div id="sente-hand" class="hand-area"></div>
+    <div id="status-sente" class="status-box">先手（青）の画面：対局開始</div>
+
+    <script>
+        const PIECES = {
+            EMPTY: 0, FU: 1, KY: 2, KE: 3, GI: 4, KI: 5, KA: 6, HI: 7, OU: 8, TENMA: 9
+        };
+
+        const PIECE_NAMES = {
+            [PIECES.EMPTY]: "", [PIECES.FU]: "歩", [PIECES.KY]: "香", [PIECES.KE]: "桂",
+            [PIECES.GI]: "銀", [PIECES.KI]: "金", [PIECES.KA]: "角", [PIECES.HI]: "飛", [PIECES.OU]: "玉", [PIECES.TENMA]: "天"
+        };
+        const PROMOTED_NAMES = {
+            [PIECES.FU]: "と", [PIECES.KY]: "杏", [PIECES.KE]: "圭", [PIECES.GI]: "全", [PIECES.KA]: "馬", [PIECES.HI]: "龍", [PIECES.TENMA]: "魔"
+        };
+
+        const initialBoard = [
+            [{ type: PIECES.KY, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KE, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.GI, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KI, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.OU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KI, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.GI, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KE, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KY, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }],
+            [{ type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.HI, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KA, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }],
+            [{ type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 'g', promoted: false, invincible: false, huge: false, hugeOrigin: null }],
+            Array.from({ length: 9 }, () => ({ type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null })),
+            Array.from({ length: 9 }, () => ({ type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null })),
+            Array.from({ length: 9 }, () => ({ type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null })),
+            [{ type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.FU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }],
+            [{ type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KA, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.HI, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null }],
+            [{ type: PIECES.KY, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KE, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.GI, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KI, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.OU, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KI, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.GI, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KE, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }, { type: PIECES.KY, player: 's', promoted: false, invincible: false, huge: false, hugeOrigin: null }]
+        ];
+
+        let gameState = {
+            board: [],
+            hands: { s: [], g: [] },
+            turn: 's',
+            selectedCell: null,
+            selectedHandPiece: null,
+            lastMove: null,
+            gameOver: false,
+            winner: null,
+            errorMessage: "",
+            positionHistoryMap: new Map(),
+            moveHistory: []
+        };
+
+        let checkingPieces = [];
+        let legalMovesCache = [];
+        let isPromotingState = false;
+        let pendingMove = null;
+
+        function cloneBoard(board) {
+            return board.map(row => row.map(cell => ({ ...cell })));
+        }
+
+        function generatePositionHash(board, hands, turn) {
+            let boardStr = "";
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const c = board[y][x];
+                    boardStr += c.type ? `${c.player}${c.type}${c.promoted ? 'p' : 'n'}` : 'E';
+                }
+            }
+            const sHand = [...hands.s].sort((a, b) => a - b).join(',');
+            const gHand = [...hands.g].sort((a, b) => a - b).join(',');
+            return `${boardStr}|S:${sHand}|G:${gHand}|T:${turn}`;
+        }
+
+        function drawBoard() {
+            const boardElement = document.getElementById('board');
+            boardElement.innerHTML = '';
+
+            checkingPieces = getCheckingPieces(gameState.turn, gameState.board);
+
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const cellData = gameState.board[y][x];
+                    
+                    if (cellData.hugeOrigin) {
+                        continue;
+                    }
+
+                    const cell = document.createElement('div');
+                    cell.classList.add('cell');
+                    
+                    if (cellData.huge) {
+                        cell.classList.add('huge-piece');
+                        cell.style.gridColumn = "span 2";
+                        cell.style.gridRow = "span 2";
+                    }
+
+                    const pieceLabel = cellData.promoted ? PROMOTED_NAMES[cellData.type] : PIECE_NAMES[cellData.type];
+
+                    if (cellData.huge) {
+                        // 巨大駒はこれまで通りセル直書きの派手な表示のまま
+                        cell.textContent = pieceLabel;
+                        if (cellData.player === 's') cell.classList.add('sente');
+                        else if (cellData.player === 'g') cell.classList.add('gote');
+                        if (cellData.promoted) cell.classList.add('promoted-text');
+                    } else if (cellData.type !== PIECES.EMPTY) {
+                        const koma = document.createElement('div');
+                        koma.classList.add('koma');
+                        if (cellData.player === 'g') koma.classList.add('gote');
+                        if (cellData.type === PIECES.OU) koma.classList.add('king');
+
+                        const span = document.createElement('span');
+                        span.textContent = pieceLabel;
+                        if (cellData.player === 's') {
+                            span.style.color = cellData.promoted ? 'var(--ink-sente-promoted)' : 'var(--ink-sente)';
+                        } else {
+                            span.style.color = cellData.promoted ? 'var(--ink-gote-promoted)' : 'var(--ink-gote)';
+                        }
+                        koma.appendChild(span);
+                        cell.appendChild(koma);
+                    }
+
+                    if (cellData.invincible) cell.classList.add('invincible-piece');
+
+                    if (gameState.selectedCell && gameState.selectedCell.x === x && gameState.selectedCell.y === y) {
+                        cell.classList.add('selected');
+                    }
+                    
+                    if (gameState.lastMove) {
+                        if (gameState.lastMove.from && gameState.lastMove.from.x === x && gameState.lastMove.from.y === y) cell.classList.add('last-move-from');
+                        if (gameState.lastMove.to && gameState.lastMove.to.x === x && gameState.lastMove.to.y === y) cell.classList.add('last-move-to');
+                    }
+                    
+                    if (checkingPieces.some(p => p.x === x && p.y === y)) {
+                        cell.classList.add('checking-piece');
+                    }
+
+                    const matchedMove = legalMovesCache.find(m => m.x === x && m.y === y);
+                    if (matchedMove) {
+                        const marker = document.createElement('span');
+                        marker.classList.add('legal-marker');
+                        marker.textContent = matchedMove.isCapture ? "◎" : "●";
+                        cell.appendChild(marker);
+                    }
+
+                    cell.addEventListener('click', () => {
+                        if (!isPromotingState) handleCellClick(x, y);
+                    });
+                    boardElement.appendChild(cell);
+                }
+            }
+
+            drawHand('s');
+            drawHand('g');
+
+            const statusSente = document.getElementById('status-sente');
+            const statusGote = document.getElementById('status-gote');
+            
+            let finalMsg = "";
+            let isCustomError = false;
+
+            if (gameState.gameOver) {
+                if (gameState.winner === 'draw') {
+                    finalMsg = "対局終了：千日手（引き分け）です。";
+                } else {
+                    finalMsg = `対局終了：${gameState.winner === 's' ? '先手（青）' : '後手（赤）'}の勝ちです！`;
+                }
+            } else if (gameState.errorMessage) {
+                finalMsg = gameState.errorMessage;
+                isCustomError = true;
+            } else {
+                const inCheck = checkingPieces.length > 0;
+                finalMsg = `${inCheck ? "【王手】" : ""}${gameState.turn === 's' ? '先手（青）' : '後手（赤）'}の手番です`;
+            }
+
+            statusSente.textContent = finalMsg;
+            statusGote.textContent = finalMsg;
+
+            if (gameState.gameOver) {
+                statusSente.style.color = "#000";
+                statusGote.style.color = "#000";
+            } else if (isCustomError) {
+                statusSente.style.color = "#ff5722";
+                statusGote.style.color = "#ff5722";
+            } else {
+                const inCheck = checkingPieces.length > 0;
+                if (inCheck) {
+                    statusSente.style.color = "#e91e63";
+                    statusGote.style.color = "#e91e63";
+                } else {
+                    statusSente.style.color = "#00c";
+                    statusGote.style.color = "#c00";
+                }
+            }
+        }
+
+        function drawHand(player) {
+            const handElement = document.getElementById(`${player === 's' ? 'sente' : 'gote'}-hand`);
+            handElement.innerHTML = '';
+            
+            const label = document.createElement('span');
+            label.textContent = player === 's' ? "先手駒:" : "後手駒:";
+            label.classList.add('hand-label');
+            handElement.appendChild(label);
+
+            const counts = {};
+            gameState.hands[player].forEach(p => { counts[p] = (counts[p] || 0) + 1; });
+
+            const pieceOrder = [PIECES.TENMA, PIECES.HI, PIECES.KA, PIECES.KI, PIECES.GI, PIECES.KE, PIECES.KY, PIECES.FU];
+
+            pieceOrder.forEach(pieceType => {
+                if (!counts[pieceType]) return;
+
+                const pElem = document.createElement('div');
+                pElem.classList.add('hand-piece');
+
+                const koma = document.createElement('div');
+                koma.classList.add('koma');
+                if (player === 'g') koma.classList.add('gote');
+
+                const span = document.createElement('span');
+                span.textContent = PIECE_NAMES[pieceType];
+                span.style.color = player === 'g' ? 'var(--ink-gote)' : 'var(--ink-sente)';
+                koma.appendChild(span);
+                pElem.appendChild(koma);
+
+                if (counts[pieceType] > 1) {
+                    const badge = document.createElement('span');
+                    badge.classList.add('hand-count');
+                    badge.textContent = `${counts[pieceType]}`;
+                    pElem.appendChild(badge);
+                }
+
+                if (gameState.selectedHandPiece && gameState.selectedHandPiece.player === player && gameState.selectedHandPiece.type === pieceType) {
+                    pElem.classList.add('selected');
+                }
+
+                pElem.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    if (!isPromotingState) handleHandClick(player, pieceType);
+                });
+                handElement.appendChild(pElem);
+            });
+        }
+
+        function isValidMove(fromX, fromY, toX, toY, pieceType, player, targetBoard = gameState.board, isPromoted = false) {
+            if (targetBoard[fromY][fromX].huge || targetBoard[fromY][fromX].hugeOrigin) {
+                return false;
+            }
+            if (targetBoard[toY][toX].type !== PIECES.EMPTY && targetBoard[toY][toX].invincible) {
+                return false;
+            }
+
+            const dx = toX - fromX;
+            const dy = toY - fromY;
+            const dir = (player === 's') ? -1 : 1;
+
+            function isPathClear(startX, startY, endX, endY) {
+                const stepX = Math.sign(endX - startX);
+                const stepY = Math.sign(endY - startY);
+                let curX = startX + stepX;
+                let curY = startY + stepY;
+                while (curX !== endX || curY !== endY) {
+                    if (targetBoard[curY][curX].type !== PIECES.EMPTY) return false;
+                    curX += stepX; curY += stepY;
+                }
+                return true;
+            }
+
+            function isGoldMove() {
+                if (dy === dir && Math.abs(dx) <= 1) return true;
+                if (dy === 0 && Math.abs(dx) === 1) return true;
+                if (dy === -dir && dx === 0) return true;
+                return false;
+            }
+
+            if (isPromoted) {
+                if (pieceType === PIECES.FU || pieceType === PIECES.KY || pieceType === PIECES.KE || pieceType === PIECES.GI) {
+                    return isGoldMove();
+                }
+                if (pieceType === PIECES.KA) {
+                    if (Math.abs(dx) === Math.abs(dy)) return isPathClear(fromX, fromY, toX, toY);
+                    if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) return true;
+                    return false;
+                }
+                if (pieceType === PIECES.HI) {
+                    if (dx === 0 || dy === 0) return isPathClear(fromX, fromY, toX, toY);
+                    if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) return true;
+                    return false;
+                }
+                if (pieceType === PIECES.TENMA) {
+                    if (dx === 0 || dy === 0) return isPathClear(fromX, fromY, toX, toY);
+                    if (Math.abs(dx) === Math.abs(dy)) return isPathClear(fromX, fromY, toX, toY);
+                    if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1) return true;
+                    if (Math.abs(dx) === 1 && dy === dir * 2) return true; // 成り天魔（魔）に桂馬の動きを追加
+                    return false;
+                }
+            }
+
+            switch (pieceType) {
+                case PIECES.FU: return (dx === 0 && dy === dir);
+                case PIECES.KY: 
+                    if (dx === 0 && Math.sign(dy) === dir) return isPathClear(fromX, fromY, toX, toY);
+                    return false;
+                case PIECES.KE: return (Math.abs(dx) === 1 && dy === dir * 2);
+                case PIECES.GI: 
+                    if (dy === dir && Math.abs(dx) <= 1) return true;
+                    if (dy === -dir && Math.abs(dx) === 1) return true;
+                    return false;
+                case PIECES.KI: return isGoldMove();
+                case PIECES.KA: 
+                    if (Math.abs(dx) === Math.abs(dy)) return isPathClear(fromX, fromY, toX, toY);
+                    return false;
+                case PIECES.HI: 
+                    if (dx === 0 || dy === 0) return isPathClear(fromX, fromY, toX, toY);
+                    return false;
+                case PIECES.OU: return (Math.abs(dx) <= 1 && Math.abs(dy) <= 1);
+                case PIECES.TENMA:
+                    if (dx === 0 || dy === 0) return isPathClear(fromX, fromY, toX, toY);
+                    if (Math.abs(dx) === Math.abs(dy)) return isPathClear(fromX, fromY, toX, toY);
+                    return false;
+                default: return false;
+            }
+        }
+
+        function getCheckingPieces(player, board) {
+            let kingX = -1, kingY = -1;
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    if (board[y][x].type === PIECES.OU && board[y][x].player === player) {
+                        kingX = x; kingY = y; break;
+                    }
+                }
+                if (kingX !== -1) break;
+            }
+            if (kingX === -1 || kingY === -1) return [];
+
+            const enemyPlayer = (player === 's') ? 'g' : 's';
+            let checkers = [];
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const cell = board[y][x];
+                    if (cell.player === enemyPlayer) {
+                        if (isValidMove(x, y, kingX, kingY, cell.type, enemyPlayer, board, cell.promoted)) {
+                            checkers.push({ x, y });
+                        }
+                    }
+                }
+            }
+            return checkers;
+        }
+
+        function isKingInCheck(player, board) {
+            return getCheckingPieces(player, board).length > 0;
+        }
+
+        function wouldBeInCheck(fromX, fromY, toX, toY, player, board = gameState.board) {
+            const virtualBoard = cloneBoard(board);
+            const source = virtualBoard[fromY][fromX];
+            virtualBoard[toY][toX] = { type: source.type, player: source.player, promoted: source.promoted, invincible: source.invincible, huge: false, hugeOrigin: source.hugeOrigin };
+            virtualBoard[fromY][fromX] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+            return isKingInCheck(player, virtualBoard);
+        }
+
+        function sideboardHasPiece(handsObj, player, pieceType) {
+            return handsObj[player].includes(pieceType);
+        }
+
+        function wouldBeInCheckFromDrop(toX, toY, pieceType, player, board = gameState.board) {
+            const virtualBoard = cloneBoard(board);
+            virtualBoard[toY][toX] = { type: pieceType, player: player, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+            return isKingInCheck(player, virtualBoard);
+        }
+
+        function hasLegalMoves(player, board = gameState.board, handsObj = gameState.hands) {
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    if (board[y][x].player === player) {
+                        for (let ty = 0; ty < 9; ty++) {
+                            for (let tx = 0; tx < 9; tx++) {
+                                if (board[ty][tx].player === player) continue;
+                                if (isValidMove(x, y, tx, ty, board[y][x].type, player, board, board[y][x].promoted)) {
+                                    if (!wouldBeInCheck(x, y, tx, ty, player, board)) return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            const myHand = handsObj[player];
+            for (let i = 0; i < myHand.length; i++) {
+                const pieceType = myHand[i];
+                for (let ty = 0; ty < 9; ty++) {
+                    for (let tx = 0; tx < 9; tx++) {
+                        if (board[ty][tx].type === PIECES.EMPTY) {
+                            if (isValidDrop(tx, ty, pieceType, player, false, board)) {
+                                if (!wouldBeInCheckFromDrop(tx, ty, pieceType, player, board)) {
+                                    if (pieceType === PIECES.FU && checkUchifuzume(tx, ty, player, board, handsObj)) continue;
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        function calculateCellLegalMoves(x, y) {
+            let moves = [];
+            const source = gameState.board[y][x];
+            if (!source.player || source.player !== gameState.turn) return moves;
+            if (source.huge || source.hugeOrigin) return moves;
+
+            for (let ty = 0; ty < 9; ty++) {
+                for (let tx = 0; tx < 9; tx++) {
+                    if (gameState.board[ty][tx].player === gameState.turn) continue;
+                    if (isValidMove(x, y, tx, ty, source.type, gameState.turn, gameState.board, source.promoted)) {
+                        if (!wouldBeInCheck(x, y, tx, ty, gameState.turn)) {
+                            const isCapture = gameState.board[ty][tx].type !== PIECES.EMPTY;
+                            moves.push({ x: tx, y: ty, isCapture });
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+
+        function calculateHandLegalMoves(pieceType, player) {
+            let moves = [];
+            for (let ty = 0; ty < 9; ty++) {
+                for (let tx = 0; tx < 9; tx++) {
+                    if (isValidDrop(tx, ty, pieceType, player, false)) {
+                        if (!wouldBeInCheckFromDrop(tx, ty, pieceType, player)) {
+                            if (pieceType === PIECES.FU && checkUchifuzume(tx, ty, player)) continue;
+                            moves.push({ x: tx, y: ty, isCapture: false });
+                        }
+                    }
+                }
+            }
+            return moves;
+        }
+
+        function isValidDrop(toX, toY, pieceType, player, setShowError = true, board = gameState.board) {
+            if (board[toY][toX].type !== PIECES.EMPTY || board[toY][toX].hugeOrigin) return false;
+
+            if (player === 's') {
+                if ((pieceType === PIECES.FU || pieceType === PIECES.KY) && toY === 0) {
+                    if (setShowError) gameState.errorMessage = "そこには行き所がなくなるため打てません。";
+                    return false;
+                }
+                if (pieceType === PIECES.KE && toY <= 1) {
+                    if (setShowError) gameState.errorMessage = "そこには行き所がなくなるため打てません。";
+                    return false;
+                }
+            } else {
+                if ((pieceType === PIECES.FU || pieceType === PIECES.KY) && toY === 8) {
+                    if (setShowError) gameState.errorMessage = "そこには行き所がなくなるため打てません。";
+                    return false;
+                }
+                if (pieceType === PIECES.KE && toY >= 7) {
+                    if (setShowError) gameState.errorMessage = "そこには行き所がなくなるため打てません。";
+                    return false;
+                }
+            }
+
+            if (pieceType === PIECES.FU) {
+                for (let y = 0; y < 9; y++) {
+                    if (board[y][toX].type === PIECES.FU && board[y][toX].player === player && !board[y][toX].promoted) {
+                        if (setShowError) gameState.errorMessage = "二歩になるため歩を打てません。";
+                        return false;
+                    }
+                }
+            }
+            return true;
+        }
+
+        function checkUchifuzume(toX, toY, player, board = gameState.board, handsObj = gameState.hands) {
+            const enemyPlayer = (player === 's') ? 'g' : 's';
+            
+            const vBoard = cloneBoard(board);
+            vBoard[toY][toX] = { type: PIECES.FU, player: player, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+
+            if (!isKingInCheck(enemyPlayer, vBoard)) return false;
+
+            const nextHands = { s: [...handsObj.s], g: [...handsObj.g] };
+            
+            if (hasLegalMoves(enemyPlayer, vBoard, nextHands)) {
+                return false; 
+            }
+            return true;
+        }
+
+        function dropPiece(toX, toY) {
+            const type = gameState.selectedHandPiece.type;
+            const player = gameState.selectedHandPiece.player;
+
+            if (!isValidDrop(toX, toY, type, player, true)) {
+                gameState.selectedHandPiece = null;
+                legalMovesCache = [];
+                drawBoard();
+                return;
+            }
+
+            if (wouldBeInCheckFromDrop(toX, toY, type, player)) {
+                gameState.errorMessage = "王手放置、または自殺手となるため打てません。";
+                gameState.selectedHandPiece = null;
+                legalMovesCache = [];
+                drawBoard();
+                return;
+            }
+
+            if (type === PIECES.FU && checkUchifuzume(toX, toY, player)) {
+                gameState.errorMessage = "打ち歩詰めは禁止されています。";
+                gameState.selectedHandPiece = null;
+                legalMovesCache = [];
+                drawBoard();
+                return;
+            }
+
+            const idx = gameState.hands[player].indexOf(type);
+            if (idx !== -1) gameState.hands[player].splice(idx, 1);
+
+            gameState.board[toY][toX] = { type: type, player: player, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+            
+            gameState.moveHistory.push({ type: 'drop', player, piece: type, to: { x: toX, y: toY } });
+            gameState.lastMove = { from: null, to: { x: toX, y: toY } };
+            
+            gameState.selectedHandPiece = null;
+            legalMovesCache = [];
+
+            checkDarkEvent(toX, toY);
+
+            finalizeTurn();
+        }
+
+        function movePiece(fromX, fromY, toX, toY) {
+            const source = gameState.board[fromY][fromX];
+            const target = gameState.board[toY][toX];
+
+            if (!isValidMove(fromX, fromY, toX, toY, source.type, source.player, gameState.board, source.promoted)) {
+                gameState.selectedCell = null;
+                legalMovesCache = [];
+                drawBoard();
+                return;
+            }
+
+            if (wouldBeInCheck(fromX, fromY, toX, toY, gameState.turn)) {
+                gameState.errorMessage = "王手放置、または自殺手です。";
+                gameState.selectedCell = null;
+                legalMovesCache = [];
+                drawBoard();
+                return;
+            }
+
+            if (target.type !== PIECES.EMPTY && target.type !== PIECES.OU) {
+                gameState.hands[gameState.turn].push(target.type);
+            }
+
+            const isSenteZone = (toY <= 2 || fromY <= 2);
+            const isGoteZone = (toY >= 6 || fromY >= 6);
+            const isTradable = (source.type !== PIECES.KI && source.type !== PIECES.OU);
+
+            let willPromote = source.promoted;
+            let needsChoice = false;
+
+            if (!source.promoted && isTradable && ((gameState.turn === 's' && isSenteZone) || (gameState.turn === 'g' && isGoteZone))) {
+                const forcePromote = (gameState.turn === 's' && (source.type === PIECES.FU || source.type === PIECES.KY) && toY === 0) ||
+                                      (gameState.turn === 's' && source.type === PIECES.KE && toY <= 1) ||
+                                      (gameState.turn === 'g' && (source.type === PIECES.FU || source.type === PIECES.KY) && toY === 8) ||
+                                      (gameState.turn === 'g' && source.type === PIECES.KE && toY >= 7);
+
+                if (forcePromote) {
+                    willPromote = true;
+                } else {
+                    needsChoice = true;
+                }
+            }
+
+            if (needsChoice) {
+                pendingMove = { fromX, fromY, toX, toY, type: source.type, player: gameState.turn };
+                showPromoteUI(toX, toY);
+            } else {
+                executeMove(fromX, fromY, toX, toY, source.type, gameState.turn, willPromote);
+            }
+        }
+
+        function executeMove(fromX, fromY, toX, toY, type, player, promoted) {
+            gameState.board[toY][toX] = { type, player, promoted, invincible: gameState.board[fromY][fromX].invincible, huge: false, hugeOrigin: null };
+            gameState.board[fromY][fromX] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+            
+            gameState.moveHistory.push({ type: 'move', player, from: { x: fromX, y: fromY }, to: { x: toX, y: toY }, piece: type, promoted });
+            gameState.lastMove = { from: { x: fromX, y: fromY }, to: { x: toX, y: toY } };
+            
+            gameState.selectedCell = null;
+            legalMovesCache = [];
+
+            checkDarkEvent(toX, toY);
+
+            finalizeTurn();
+        }
+
+        function showPromoteUI(toX, toY) {
+            isPromotingState = true;
+            const ui = document.getElementById('promote-ui');
+            
+            const percentX = (toX / 9) * 100;
+            const percentY = (toY / 9) * 100;
+            
+            ui.style.left = `${Math.min(percentX + 2, 65)}%`;
+            ui.style.top = `${Math.min(percentY + 5, 85)}%`;
+            ui.style.display = 'flex';
+        }
+
+        function promotePiece(choosePromote) {
+            document.getElementById('promote-ui').style.display = 'none';
+            isPromotingState = false;
+
+            if (pendingMove) {
+                executeMove(pendingMove.fromX, pendingMove.fromY, pendingMove.toX, pendingMove.toY, pendingMove.type, pendingMove.player, choosePromote);
+                pendingMove = null;
+            }
+        }
+
+        function recordPosition() {
+            const hash = generatePositionHash(gameState.board, gameState.hands, gameState.turn);
+            gameState.positionHistoryMap.set(hash, (gameState.positionHistoryMap.get(hash) || 0) + 1);
+        }
+
+        function checkSennichite() {
+            const currentHash = generatePositionHash(gameState.board, gameState.hands, gameState.turn);
+            const count = gameState.positionHistoryMap.get(currentHash) || 0;
+
+            if (count >= 4) {
+                const isSenteCheckingNow = isKingInCheck('g', gameState.board);
+                const isGoteCheckingNow = isKingInCheck('s', gameState.board);
+
+                if (isSenteCheckingNow && gameState.turn === 's') {
+                    gameState.gameOver = true;
+                    gameState.winner = 'g';
+                    gameState.errorMessage = "連続王手の千日手により先手反則負け";
+                    return true;
+                }
+                if (isGoteCheckingNow && gameState.turn === 'g') {
+                    gameState.gameOver = true;
+                    gameState.winner = 's';
+                    gameState.errorMessage = "連続王手の千日手により後手反則負け";
+                    return true;
+                }
+
+                gameState.gameOver = true;
+                gameState.winner = 'draw';
+                return true;
+            }
+            return false;
+        }
+
+        function checkDarkEvent(toX, toY) {
+            const targetPiece = gameState.board[toY][toX];
+            if (targetPiece.type === PIECES.EMPTY) return;
+
+            if (Math.random() < 0.10) {
+                const sideName = targetPiece.player === 's' ? '先手' : '後手';
+                const pieceName = targetPiece.promoted ? PROMOTED_NAMES[targetPiece.type] : PIECE_NAMES[targetPiece.type];
+                
+                const rand = Math.random();
+
+                // 確率の等分割（10パターンの抽選：各10%）
+                if (rand < 0.10) {
+                    if (targetPiece.type === PIECES.OU) {
+                        gameState.errorMessage = `💥 地雷が反応しましたが、王の絶対強者のオーラにより不発に終わりました！`;
+                        return;
+                    }
+                    gameState.errorMessage = `💥 闇イベント発生！地雷を踏んだ${sideName}の「${pieceName}」が跡形もなく消滅しました！`;
+                    gameState.board[toY][toX] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+                } 
+                else if (rand < 0.20) {
+                    let emptyCells = [];
+                    for (let y = 0; y < 9; y++) {
+                        for (let x = 0; x < 9; x++) {
+                            if (gameState.board[y][x].type === PIECES.EMPTY) {
+                                emptyCells.push({ x, y });
+                            }
+                        }
+                    }
+
+                    if (emptyCells.length > 0) {
+                        const randomIndex = Math.floor(Math.random() * emptyCells.length);
+                        const dest = emptyCells[randomIndex];
+
+                        gameState.board[dest.y][dest.x] = { ...targetPiece };
+                        gameState.board[toY][toX] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+
+                        if (gameState.lastMove) {
+                            gameState.lastMove.to = { x: dest.x, y: dest.y };
+                        }
+
+                        gameState.errorMessage = `🌀 闇イベント発生！次元の歪みにより、${sideName}の「${pieceName}」が (${dest.x}, ${dest.y}) のマスへランダムワープしました！`;
+                    } else {
+                        gameState.errorMessage = `🌀 次元の歪みが発生しましたが、ワープできる空きマスがありませんでした。`;
+                    }
+                } 
+                else if (rand < 0.30) {
+                    if (targetPiece.type === PIECES.OU) {
+                        gameState.errorMessage = `🤝 裏切りの風が吹きましたが、王の圧倒的カリスマの前に誰も反旗を翻せませんでした！`;
+                        return;
+                    }
+                    const oldPlayer = targetPiece.player;
+                    const newPlayer = oldPlayer === 's' ? 'g' : 's';
+                    const enemySideName = newPlayer === 's' ? '先手' : '後手';
+                    
+                    gameState.board[toY][toX].player = newPlayer;
+                    gameState.errorMessage = `🤝 闇イベント発生！裏切りの風が吹き、${sideName}の「${pieceName}」が${enemySideName}側に寝返りました！`;
+                }
+                else if (rand < 0.40) {
+                    if (targetPiece.type === PIECES.OU) {
+                        gameState.errorMessage = `🔮 幻惑 of 霧が立ち込めましたが、王の威厳が勝り変身を免れました！`;
+                        return;
+                    }
+
+                    const randomPieceType = Math.floor(Math.random() * 7) + 1; 
+                    const newPieceName = PIECE_NAMES[randomPieceType];
+
+                    gameState.board[toY][toX].type = randomPieceType;
+                    gameState.board[toY][toX].promoted = false;
+
+                    gameState.errorMessage = `🔮 闇イベント発生！魔力によって${sideName}の「${pieceName}」が「${newPieceName}」に姿を変えました！`;
+                }
+                else if (rand < 0.50) {
+                    gameState.board[toY][toX].invincible = true;
+                    gameState.errorMessage = `🛡️ 闇イベント発生！神の加護により、${sideName}の「${pieceName}」が次の相手ターン終了まで【無敵】になりました！（取られません）`;
+                }
+                else if (rand < 0.60) {
+                    let originX = toX;
+                    let originY = toY;
+
+                    if (originX === 8) originX = 7;
+                    if (originY === 8) originY = 7;
+
+                    const pieceToHuge = gameState.board[toY][toX];
+                    
+                    gameState.board[originY][originX] = {
+                        ...pieceToHuge,
+                        huge: true,
+                        hugeOrigin: null
+                    };
+
+                    if (originX !== toX || originY !== toY) {
+                        gameState.board[toY][toX] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+                    }
+
+                    const targets = [
+                        { x: originX + 1, y: originY },
+                        { x: originX,     y: originY + 1 },
+                        { x: originX + 1, y: originY + 1 }
+                    ];
+
+                    let crushInfo = [];
+
+                    targets.forEach(t => {
+                        const victim = gameState.board[t.y][t.x];
+                        if (victim.type !== PIECES.EMPTY) {
+                            if (victim.type === PIECES.OU) {
+                                return;
+                            }
+                            const side = victim.player === 's' ? '先手' : '後手';
+                            const name = victim.promoted ? PROMOTED_NAMES[victim.type] : PIECE_NAMES[victim.type];
+                            crushInfo.push(`${side}の${name}`);
+                        }
+                        gameState.board[t.y][t.x] = {
+                            type: PIECES.EMPTY,
+                            player: null,
+                            promoted: false,
+                            invincible: false,
+                            huge: false,
+                            hugeOrigin: { x: originX, y: originY }
+                        };
+                    });
+
+                    const currentPieceName = pieceToHuge.promoted ? PROMOTED_NAMES[pieceToHuge.type] : PIECE_NAMES[pieceToHuge.type];
+                    gameState.errorMessage = `🌋 闇イベント発生！！巨大化の呪文により${sideName}の「${currentPieceName}」が4マス分に巨大化！`;
+                    
+                    if (crushInfo.length > 0) {
+                        gameState.errorMessage += ` 周辺にあった [ ${crushInfo.join(', ')} ] を粉砕しました！`;
+                    }
+                }
+                else if (rand < 0.70) {
+                    gameState.errorMessage = `🌌 闇イベント発生！！！【世界線の収束】が起こり、両者の「王（玉）」以外のすべての駒が持ち駒へと強制送還されました！`;
+                    
+                    for (let y = 0; y < 9; y++) {
+                        for (let x = 0; x < 9; x++) {
+                            const current = gameState.board[y][x];
+                            if (current.type !== PIECES.EMPTY && current.type !== PIECES.OU) {
+                                gameState.hands[current.player].push(current.type);
+                                gameState.board[y][x] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+                            }
+                            if (current.hugeOrigin) {
+                                if (gameState.board[y][x].type !== PIECES.OU) {
+                                    gameState.board[y][x] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+                                }
+                            }
+                        }
+                    }
+                }
+                else if (rand < 0.80) {
+                    gameState.errorMessage = `💣 闇イベント発生！！！【黒の衝撃】の爆風が吹き荒れ、着手した「${pieceName}」の周囲8マスが消滅しました！`;
+                    
+                    let destroyedPieces = [];
+
+                    for (let dy = -1; dy <= 1; dy++) {
+                        for (let dx = -1; dx <= 1; dx++) {
+                            if (dx === 0 && dy === 0) continue; 
+                            
+                            const targetX = toX + dx;
+                            const targetY = toY + dy;
+
+                            if (targetX >= 0 && targetX < 9 && targetY >= 0 && targetY < 9) {
+                                const victim = gameState.board[targetY][targetX];
+                                
+                                if (victim.type !== PIECES.EMPTY) {
+                                    if (victim.type === PIECES.OU) {
+                                        continue;
+                                    }
+                                    const side = victim.player === 's' ? '先手' : '後手';
+                                    const name = victim.promoted ? PROMOTED_NAMES[victim.type] : PIECE_NAMES[victim.type];
+                                    destroyedPieces.push(`${side}の${name}`);
+                                }
+
+                                gameState.board[targetY][targetX] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+                            }
+                        }
+                    }
+
+                    if (destroyedPieces.length > 0) {
+                        gameState.errorMessage += ` 巻き込まれた [ ${destroyedPieces.join(', ')} ] が粉砕されました！`;
+                    }
+                }
+                else if (rand < 0.90) {
+                    // 【新イベント】王と持ち駒以外、盤上のすべての通常駒が「歩」に強制変化する
+                    gameState.errorMessage = `🌾 闇イベント発生！！！【歩兵の反乱】が勃発！盤上にある「王（玉）」以外のすべての駒が強制的に「歩」に変わってしまいました！`;
+                    
+                    for (let y = 0; y < 9; y++) {
+                        for (let x = 0; x < 9; x++) {
+                            const current = gameState.board[y][x];
+                            // 空きマスではなく、王でもなく、巨大化パーツでもない通常の駒を変換
+                            if (current.type !== PIECES.EMPTY && current.type !== PIECES.OU && !current.hugeOrigin) {
+                                current.type = PIECES.FU;
+                                current.promoted = false; // 成りも解除
+                                current.huge = false;     // 巨大化も解除
+                            }
+                        }
+                    }
+                }
+                else {
+                    // 【新イベント】動かした駒が飛車と角を合わせた最強駒「天魔」に変貌する
+                    if (targetPiece.type === PIECES.OU) {
+                        gameState.errorMessage = `👑 究極の覚醒の兆しが見えましたが、王はすでに全知全能であるため変化しませんでした。`;
+                        return;
+                    }
+                    gameState.board[toY][toX].type = PIECES.TENMA;
+                    gameState.board[toY][toX].promoted = false; // 最初は「天」からスタート
+                    gameState.errorMessage = `😈 闇イベント発生！！！究極融合の儀式により、${sideName}の「${pieceName}」が飛車と角の力を併せ持つ最強駒【天魔】に覚醒しました！`;
+                }
+            }
+        }
+
+        function finalizeTurn() {
+            gameState.turn = (gameState.turn === 's') ? 'g' : 's';
+
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const cell = gameState.board[y][x];
+                    if (cell.player === gameState.turn) {
+                        cell.invincible = false;
+
+                        if (cell.huge) {
+                            cell.huge = false;
+                            
+                            const targets = [
+                                { x: x + 1, y: y },
+                                { x: x,     y: y + 1 },
+                                { x: x + 1, y: y + 1 }
+                            ];
+                            targets.forEach(t => {
+                                if (t.x < 9 && t.y < 9) {
+                                    gameState.board[t.y][t.x] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            recordPosition();
+            if (checkSennichite()) {
+                drawBoard();
+                return;
+            }
+
+            const inCheck = isKingInCheck(gameState.turn, gameState.board);
+            const hasMoves = hasLegalMoves(gameState.turn);
+
+            if (!hasMoves) {
+                if (inCheck) {
+                    gameState.gameOver = true;
+                    gameState.winner = (gameState.turn === 's') ? 'g' : 's';
+                } else {
+                    gameState.gameOver = true;
+                    gameState.winner = 'draw';
+                    gameState.errorMessage = "合法手なし(不詰み引き分け)";
+                }
+            }
+            drawBoard();
+        }
+
+        function handleHandClick(player, pieceType) {
+            if (gameState.gameOver) return;
+            if (player !== gameState.turn) {
+                gameState.errorMessage = "自分の持ち駒しか選択できません。";
+                drawBoard();
+                return;
+            }
+            gameState.errorMessage = "";
+            gameState.selectedCell = null;
+            
+            const index = gameState.hands[player].indexOf(pieceType);
+            gameState.selectedHandPiece = { player, type: pieceType, index };
+            
+            legalMovesCache = calculateHandLegalMoves(pieceType, player);
+            drawBoard();
+        }
+
+        function handleCellClick(x, y) {
+            if (gameState.gameOver) return;
+            gameState.errorMessage = "";
+
+            const clickedCell = gameState.board[y][x];
+
+            let targetX = x;
+            let targetY = y;
+            if (clickedCell.hugeOrigin) {
+                targetX = clickedCell.hugeOrigin.x;
+                targetY = clickedCell.hugeOrigin.y;
+            }
+
+            if (gameState.selectedHandPiece) {
+                if (gameState.board[targetY][targetX].player === gameState.turn) {
+                    gameState.selectedHandPiece = null;
+                    gameState.selectedCell = { x: targetX, y: targetY };
+                    legalMovesCache = calculateCellLegalMoves(targetX, targetY);
+                    drawBoard();
+                    return;
+                }
+                dropPiece(x, y);
+                return;
+            }
+
+            if (gameState.selectedCell) {
+                if (gameState.board[targetY][targetX].player === gameState.turn) {
+                    gameState.selectedCell = { x: targetX, y: targetY };
+                    legalMovesCache = calculateCellLegalMoves(targetX, targetY);
+                    drawBoard();
+                    return;
+                }
+                movePiece(gameState.selectedCell.x, gameState.selectedCell.y, targetX, targetY);
+            } 
+            else {
+                if (gameState.board[targetY][targetX].player === gameState.turn) {
+                    gameState.selectedCell = { x: targetX, y: targetY };
+                    legalMovesCache = calculateCellLegalMoves(targetX, targetY);
+                    drawBoard();
+                }
+            }
+        }
+
+        document.getElementById('btn-promote-yes').addEventListener('click', () => promotePiece(true));
+        document.getElementById('btn-promote-no').addEventListener('click', () => promotePiece(false));
+
+        gameState.board = cloneBoard(initialBoard);
+        recordPosition();
+        drawBoard();
+    </script>
+</body>
+</html>
