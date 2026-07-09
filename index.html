@@ -1,4 +1,4 @@
-く<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -272,28 +272,158 @@
         }
         .btn-yes { background-color: #4caf50; color: white; }
         .btn-no { background-color: #e0e0e0; color: #333; }
+
+        /* ===================== メニュー / オーバーレイ ===================== */
+        .menu-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 200;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background:
+                radial-gradient(1200px 600px at 50% -10%, #2a2016 0%, #14100b 55%, #0b0906 100%);
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .menu-panel {
+            width: min(90vw, 360px);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+            padding: 28px 24px;
+            border-radius: 14px;
+            background: linear-gradient(160deg, var(--frame-light) 0%, var(--frame-dark) 55%, #1c1006 100%);
+            box-shadow:
+                0 30px 60px -20px rgba(0,0,0,.85),
+                0 2px 0 rgba(255,255,255,.06) inset;
+        }
+        .menu-eyebrow {
+            text-align: center;
+            font-size: .7rem;
+            letter-spacing: .2em;
+            color: #a8925f;
+        }
+        .menu-title {
+            text-align: center;
+            font-size: 1.6rem;
+            letter-spacing: .06em;
+            color: #f0e2bd;
+            margin: 0 0 10px;
+            text-shadow: 0 1px 0 rgba(0,0,0,.6);
+        }
+        .menu-btn {
+            padding: 14px 10px;
+            font-size: 1rem;
+            font-weight: bold;
+            font-family: inherit;
+            letter-spacing: .05em;
+            color: #f2e2ba;
+            background: linear-gradient(160deg, #4a3218, #2c1c0c);
+            border: 1px solid var(--koma-edge);
+            border-radius: 8px;
+            cursor: pointer;
+            box-shadow: 0 3px 5px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.12) inset;
+        }
+        .menu-btn:active { transform: translateY(1px); }
+        .menu-btn.selected {
+            background: linear-gradient(160deg, var(--koma-a) 0%, var(--koma-b) 55%, #d8bd85 100%);
+            color: var(--ink-sente);
+            border-color: #b48a3e;
+        }
+        .menu-btn-primary {
+            background: linear-gradient(160deg,#f7e9c2,#eccf8f 55%,#dcb877 100%);
+            color: var(--ink-sente);
+            border-color: #b48a3e;
+        }
+        .menu-btn-ghost {
+            background: transparent;
+            box-shadow: none;
+            color: #a8925f;
+            border-color: rgba(168,146,95,0.4);
+        }
+        .cpu-thinking-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 300;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(10, 7, 4, 0.35);
+            pointer-events: none;
+        }
+        .cpu-thinking-box {
+            padding: 14px 28px;
+            border-radius: 10px;
+            background: linear-gradient(160deg,#2a2015,#1b140c);
+            color: #f0e2bd;
+            font-weight: bold;
+            letter-spacing: .1em;
+            box-shadow: 0 10px 24px -8px rgba(0,0,0,.7), 0 1px 0 rgba(255,255,255,.08) inset;
+        }
     </style>
 </head>
 <body>
 
-    <h1>闇 of 将棋 (Step 4.2)</h1>
-    
-    <!-- 【配置移動】最上部に後手用ステータスと後手持ち駒を集約 -->
-    <div id="status-gote" class="status-box">後手（赤）の画面：対局開始</div>
-    <div id="gote-hand" class="hand-area"></div>
-    
-    <!-- 中央：将棋盤 -->
-    <div id="board-container">
-        <div id="promote-ui">
-            <button class="promote-btn btn-yes" id="btn-promote-yes">成る</button>
-            <button class="promote-btn btn-no" id="btn-promote-no">成らず</button>
+    <!-- ===================== メニュー画面（タイトル） ===================== -->
+    <div id="menu-title" class="menu-overlay">
+        <div class="menu-panel">
+            <div class="menu-eyebrow">SHOGI · DARKNESS EDITION</div>
+            <h1 class="menu-title">Extreme Shougi</h1>
+            <button class="menu-btn" id="btn-mode-pvp">VS プレイヤー</button>
+            <button class="menu-btn" id="btn-mode-cpu">VS CPU</button>
         </div>
-        <div id="board"></div>
     </div>
-    
-    <!-- 最下部：先手持ち駒と先手用ステータス -->
-    <div id="sente-hand" class="hand-area"></div>
-    <div id="status-sente" class="status-box">先手（青）の画面：対局開始</div>
+
+    <!-- ===================== メニュー画面（CPUレベル選択） ===================== -->
+    <div id="menu-level" class="menu-overlay" style="display:none;">
+        <div class="menu-panel">
+            <div class="menu-eyebrow">CPU LEVEL</div>
+            <h1 class="menu-title" style="font-size:1.4rem;">CPUレベルを選択</h1>
+            <button class="menu-btn level-btn" data-level="1" id="btn-level-1">Lv1　初心者</button>
+            <button class="menu-btn level-btn" data-level="2" id="btn-level-2">Lv2　普通</button>
+            <button class="menu-btn level-btn" data-level="3" id="btn-level-3">Lv3　強い</button>
+            <button class="menu-btn menu-btn-primary" id="btn-cpu-start">開始</button>
+            <button class="menu-btn menu-btn-ghost" id="btn-level-back">戻る</button>
+        </div>
+    </div>
+
+    <!-- ===================== 対局終了オーバーレイ ===================== -->
+    <div id="menu-result" class="menu-overlay" style="display:none;">
+        <div class="menu-panel">
+            <div class="menu-eyebrow">GAME SET</div>
+            <h1 class="menu-title" id="result-message" style="font-size:1.2rem;">対局終了</h1>
+            <button class="menu-btn menu-btn-primary" id="btn-play-again">もう一局</button>
+            <button class="menu-btn menu-btn-ghost" id="btn-back-title">タイトルへ戻る</button>
+        </div>
+    </div>
+
+    <!-- ===================== CPU思考中インジケーター ===================== -->
+    <div id="cpu-thinking" class="cpu-thinking-overlay" style="display:none;">
+        <div class="cpu-thinking-box">CPU思考中...</div>
+    </div>
+
+    <!-- ===================== ゲーム本体画面 ===================== -->
+    <div id="game-screen" style="display:none;">
+        <!-- 【配置移動】最上部に後手用ステータスと後手持ち駒を集約 -->
+        <div id="status-gote" class="status-box">後手（赤）の画面：対局開始</div>
+        <div id="gote-hand" class="hand-area"></div>
+        
+        <!-- 中央：将棋盤 -->
+        <div id="board-container">
+            <div id="promote-ui">
+                <button class="promote-btn btn-yes" id="btn-promote-yes">成る</button>
+                <button class="promote-btn btn-no" id="btn-promote-no">成らず</button>
+            </div>
+            <div id="board"></div>
+        </div>
+        
+        <!-- 最下部：先手持ち駒と先手用ステータス -->
+        <div id="sente-hand" class="hand-area"></div>
+        <div id="status-sente" class="status-box">先手（青）の画面：対局開始</div>
+    </div>
+
 
     <script>
         const PIECES = {
@@ -338,6 +468,12 @@
         let legalMovesCache = [];
         let isPromotingState = false;
         let pendingMove = null;
+
+        // ===================== Game Mode / CPU 対戦の状態 =====================
+        let gameMode = 'pvp';      // 'pvp' または 'cpu'
+        let cpuLevel = 1;          // 1,2,3
+        let cpuPlayer = 'g';       // CPUが担当する手番（VS CPUでは後手固定）
+        let cpuThinking = false;   // CPU思考中フラグ（連続実行防止）
 
         function cloneBoard(board) {
             return board.map(row => row.map(cell => ({ ...cell })));
@@ -1178,6 +1314,7 @@
             recordPosition();
             if (checkSennichite()) {
                 drawBoard();
+                afterTurnHooks();
                 return;
             }
 
@@ -1195,10 +1332,12 @@
                 }
             }
             drawBoard();
+            afterTurnHooks();
         }
 
         function handleHandClick(player, pieceType) {
             if (gameState.gameOver) return;
+            if (cpuThinking || (gameMode === 'cpu' && gameState.turn === cpuPlayer)) return;
             if (player !== gameState.turn) {
                 gameState.errorMessage = "自分の持ち駒しか選択できません。";
                 drawBoard();
@@ -1216,6 +1355,7 @@
 
         function handleCellClick(x, y) {
             if (gameState.gameOver) return;
+            if (cpuThinking || (gameMode === 'cpu' && gameState.turn === cpuPlayer)) return;
             gameState.errorMessage = "";
 
             const clickedCell = gameState.board[y][x];
@@ -1260,9 +1400,386 @@
         document.getElementById('btn-promote-yes').addEventListener('click', () => promotePiece(true));
         document.getElementById('btn-promote-no').addEventListener('click', () => promotePiece(false));
 
-        gameState.board = cloneBoard(initialBoard);
-        recordPosition();
-        drawBoard();
+        // ================================================================
+        // ===================== CPU AI モジュール =====================
+        // ================================================================
+        const CPU_PIECE_VALUE = {
+            [PIECES.OU]: 100000,
+            [PIECES.TENMA]: 1500,
+            [PIECES.HI]: 900,
+            [PIECES.KA]: 800,
+            [PIECES.KI]: 600,
+            [PIECES.GI]: 500,
+            [PIECES.KE]: 300,
+            [PIECES.KY]: 300,
+            [PIECES.FU]: 100
+        };
+        const CPU_PROMOTED_BONUS = 1.3; // 成駒は通常より高評価
+
+        function cpuPieceScore(type, promoted) {
+            const base = CPU_PIECE_VALUE[type] || 0;
+            if (type === PIECES.OU) return base;
+            return promoted ? Math.round(base * CPU_PROMOTED_BONUS) : base;
+        }
+
+        // 盤面評価（先手視点：プラスなら先手有利）
+        function evaluateBoard(board, handsObj) {
+            let score = 0;
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const c = board[y][x];
+                    if (c.type === PIECES.EMPTY) continue;
+                    const v = cpuPieceScore(c.type, c.promoted);
+                    score += (c.player === 's') ? v : -v;
+                }
+            }
+            handsObj.s.forEach(t => { score += cpuPieceScore(t, false); });
+            handsObj.g.forEach(t => { score -= cpuPieceScore(t, false); });
+            return score;
+        }
+
+        // 指定局面(board/hands)における指定プレイヤーの全合法手を列挙。
+        // 合法判定は既存の isValidMove / wouldBeInCheck / isValidDrop / wouldBeInCheckFromDrop / checkUchifuzume をそのまま利用する（新規の合法手ロジックは実装しない）。
+        function cpuGetAllLegalMoves(player, board, handsObj) {
+            let moves = [];
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const src = board[y][x];
+                    if (src.player !== player) continue;
+                    if (src.huge || src.hugeOrigin) continue;
+                    for (let ty = 0; ty < 9; ty++) {
+                        for (let tx = 0; tx < 9; tx++) {
+                            if (board[ty][tx].player === player) continue;
+                            if (isValidMove(x, y, tx, ty, src.type, player, board, src.promoted)) {
+                                if (!wouldBeInCheck(x, y, tx, ty, player, board)) {
+                                    const isCapture = board[ty][tx].type !== PIECES.EMPTY;
+                                    moves.push({
+                                        kind: 'move', fromX: x, fromY: y, toX: tx, toY: ty,
+                                        pieceType: src.type, promoted: src.promoted, isCapture,
+                                        capturedType: isCapture ? board[ty][tx].type : null
+                                    });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            const handTypes = [...new Set(handsObj[player])];
+            handTypes.forEach(pieceType => {
+                for (let ty = 0; ty < 9; ty++) {
+                    for (let tx = 0; tx < 9; tx++) {
+                        if (board[ty][tx].type !== PIECES.EMPTY) continue;
+                        if (isValidDrop(tx, ty, pieceType, player, false, board)) {
+                            if (!wouldBeInCheckFromDrop(tx, ty, pieceType, player, board)) {
+                                if (pieceType === PIECES.FU && checkUchifuzume(tx, ty, player, board, handsObj)) return;
+                                moves.push({ kind: 'drop', toX: tx, toY: ty, pieceType, player, isCapture: false });
+                            }
+                        }
+                    }
+                }
+            });
+
+            return moves;
+        }
+
+        // 成り判定（CPUは成れる場面では基本的に成りを選択する）
+        function cpuShouldPromote(move, board) {
+            if (move.kind !== 'move') return false;
+            const src = board[move.fromY][move.fromX];
+            if (src.promoted) return false;
+            if (src.type === PIECES.KI || src.type === PIECES.OU) return false;
+
+            const player = src.player;
+            const isSenteZone = (move.toY <= 2 || move.fromY <= 2);
+            const isGoteZone = (move.toY >= 6 || move.fromY >= 6);
+            return (player === 's' && isSenteZone) || (player === 'g' && isGoteZone);
+        }
+
+        // 手を適用した仮想局面を生成（探索専用。gameStateやDOMには一切触れない純粋関数）
+        function cpuApplyMove(board, handsObj, move) {
+            const newBoard = cloneBoard(board);
+            const newHands = { s: [...handsObj.s], g: [...handsObj.g] };
+
+            if (move.kind === 'drop') {
+                const idx = newHands[move.player].indexOf(move.pieceType);
+                if (idx !== -1) newHands[move.player].splice(idx, 1);
+                newBoard[move.toY][move.toX] = { type: move.pieceType, player: move.player, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+            } else {
+                const source = newBoard[move.fromY][move.fromX];
+                const target = newBoard[move.toY][move.toX];
+                if (target.type !== PIECES.EMPTY && target.type !== PIECES.OU) {
+                    newHands[source.player].push(target.type);
+                }
+                const promote = source.promoted || cpuShouldPromote(move, board);
+                newBoard[move.toY][move.toX] = { type: source.type, player: source.player, promoted: promote, invincible: false, huge: false, hugeOrigin: null };
+                newBoard[move.fromY][move.fromX] = { type: PIECES.EMPTY, player: null, promoted: false, invincible: false, huge: false, hugeOrigin: null };
+            }
+            return { board: newBoard, hands: newHands };
+        }
+
+        // ---- Lv1: 合法手からランダム（王手できる手があれば優先） ----
+        function cpuChooseMoveLv1(player, board, handsObj) {
+            const moves = cpuGetAllLegalMoves(player, board, handsObj);
+            if (moves.length === 0) return null;
+
+            const enemy = player === 's' ? 'g' : 's';
+            const checkMoves = moves.filter(m => {
+                const { board: nb } = cpuApplyMove(board, handsObj, m);
+                return isKingInCheck(enemy, nb);
+            });
+
+            const pool = checkMoves.length > 0 ? checkMoves : moves;
+            return pool[Math.floor(Math.random() * pool.length)];
+        }
+
+        // ---- Lv2: 駒得評価 + 1手読み（取れる駒は取る／王手優先／自玉の危険を回避） ----
+        function cpuChooseMoveLv2(player, board, handsObj) {
+            const moves = cpuGetAllLegalMoves(player, board, handsObj);
+            if (moves.length === 0) return null;
+
+            const enemy = player === 's' ? 'g' : 's';
+            const perspective = (player === 's') ? 1 : -1;
+
+            let bestScore = -Infinity;
+            let bestMoves = [];
+
+            moves.forEach(m => {
+                const { board: nb, hands: nh } = cpuApplyMove(board, handsObj, m);
+                let score = evaluateBoard(nb, nh) * perspective;
+
+                if (isKingInCheck(enemy, nb)) score += 150;
+
+                // 1手読み：この手を指した後、相手の最善の捕獲でどれだけ損するかを見て自玉/駒の危険を回避
+                const enemyReplies = cpuGetAllLegalMoves(enemy, nb, nh);
+                let worstLoss = 0;
+                enemyReplies.forEach(r => {
+                    if (r.isCapture) {
+                        const capturedVal = cpuPieceScore(r.capturedType, nb[r.toY][r.toX].promoted);
+                        if (capturedVal > worstLoss) worstLoss = capturedVal;
+                    }
+                });
+                score -= worstLoss;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMoves = [m];
+                } else if (score === bestScore) {
+                    bestMoves.push(m);
+                }
+            });
+
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        }
+
+        // ---- Lv3: ミニマックス＋αβ探索（2手読み） ----
+        const CPU_LV3_DEPTH = 2;
+
+        function cpuMinimax(board, handsObj, depth, alpha, beta, sideToMove) {
+            const moves = cpuGetAllLegalMoves(sideToMove, board, handsObj);
+
+            if (depth === 0 || moves.length === 0) {
+                return evaluateBoard(board, handsObj);
+            }
+
+            moves.sort((a, b) => (b.isCapture ? 1 : 0) - (a.isCapture ? 1 : 0));
+
+            const enemy = sideToMove === 's' ? 'g' : 's';
+            const maximizing = (sideToMove === 's');
+
+            if (maximizing) {
+                let value = -Infinity;
+                for (const m of moves) {
+                    const { board: nb, hands: nh } = cpuApplyMove(board, handsObj, m);
+                    value = Math.max(value, cpuMinimax(nb, nh, depth - 1, alpha, beta, enemy));
+                    alpha = Math.max(alpha, value);
+                    if (alpha >= beta) break;
+                }
+                return value;
+            } else {
+                let value = Infinity;
+                for (const m of moves) {
+                    const { board: nb, hands: nh } = cpuApplyMove(board, handsObj, m);
+                    value = Math.min(value, cpuMinimax(nb, nh, depth - 1, alpha, beta, enemy));
+                    beta = Math.min(beta, value);
+                    if (alpha >= beta) break;
+                }
+                return value;
+            }
+        }
+
+        function cpuChooseMoveLv3(player, board, handsObj) {
+            const moves = cpuGetAllLegalMoves(player, board, handsObj);
+            if (moves.length === 0) return null;
+
+            moves.sort((a, b) => (b.isCapture ? 1 : 0) - (a.isCapture ? 1 : 0));
+
+            const enemy = player === 's' ? 'g' : 's';
+            const perspective = (player === 's') ? 1 : -1;
+
+            let bestScore = -Infinity;
+            let bestMoves = [];
+
+            moves.forEach(m => {
+                const { board: nb, hands: nh } = cpuApplyMove(board, handsObj, m);
+                const raw = cpuMinimax(nb, nh, CPU_LV3_DEPTH - 1, -Infinity, Infinity, enemy);
+                const score = raw * perspective;
+
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestMoves = [m];
+                } else if (score === bestScore) {
+                    bestMoves.push(m);
+                }
+            });
+
+            return bestMoves[Math.floor(Math.random() * bestMoves.length)];
+        }
+
+        function cpuChooseMove(level, player, board, handsObj) {
+            if (level === 1) return cpuChooseMoveLv1(player, board, handsObj);
+            if (level === 2) return cpuChooseMoveLv2(player, board, handsObj);
+            return cpuChooseMoveLv3(player, board, handsObj);
+        }
+
+        // 選ばれた手を実際のゲーム状態に反映する。既存のdropPiece/movePiece/promotePieceパイプラインをそのまま利用する。
+        function cpuExecuteMove(move) {
+            if (!move) return;
+
+            if (move.kind === 'drop') {
+                gameState.selectedHandPiece = { player: move.player, type: move.pieceType, index: gameState.hands[move.player].indexOf(move.pieceType) };
+                gameState.selectedCell = null;
+                dropPiece(move.toX, move.toY);
+            } else {
+                gameState.selectedCell = null;
+                gameState.selectedHandPiece = null;
+                movePiece(move.fromX, move.fromY, move.toX, move.toY);
+                if (isPromotingState) {
+                    const decision = cpuShouldPromote(move, gameState.board);
+                    promotePiece(decision);
+                }
+            }
+        }
+
+        const CPU_THINK_TIME = { 1: 300, 2: 800, 3: 1500 };
+
+        function runCpuTurn() {
+            if (gameMode !== 'cpu') return;
+            if (gameState.gameOver) return;
+            if (gameState.turn !== cpuPlayer) return;
+            if (cpuThinking) return;
+
+            cpuThinking = true;
+            document.getElementById('cpu-thinking').style.display = 'flex';
+
+            const thinkTime = CPU_THINK_TIME[cpuLevel] || 500;
+
+            setTimeout(() => {
+                const move = cpuChooseMove(cpuLevel, cpuPlayer, gameState.board, gameState.hands);
+                cpuExecuteMove(move);
+
+                cpuThinking = false;
+                document.getElementById('cpu-thinking').style.display = 'none';
+            }, thinkTime);
+        }
+
+        // finalizeTurn後に呼ばれる共通フック：対局終了オーバーレイ表示 / CPU着手トリガー
+        function afterTurnHooks() {
+            if (gameState.gameOver) {
+                showResultOverlay();
+                return;
+            }
+            runCpuTurn();
+        }
+
+        // ================================================================
+        // ===================== メニュー / UI モジュール =====================
+        // ================================================================
+        function showScreen(id) {
+            ['menu-title', 'menu-level', 'menu-result'].forEach(sid => {
+                document.getElementById(sid).style.display = (sid === id) ? 'flex' : 'none';
+            });
+        }
+
+        function showTitleMenu() {
+            document.getElementById('game-screen').style.display = 'none';
+            showScreen('menu-title');
+        }
+
+        function showLevelMenu() {
+            showScreen('menu-level');
+        }
+
+        function showResultOverlay() {
+            const msg = document.getElementById('result-message');
+            if (gameState.winner === 'draw') {
+                msg.textContent = "引き分けです";
+            } else {
+                const winnerName = gameState.winner === 's' ? '先手（青）' : '後手（赤）';
+                msg.textContent = `${winnerName}の勝ちです！`;
+            }
+            document.getElementById('menu-title').style.display = 'none';
+            document.getElementById('menu-level').style.display = 'none';
+            document.getElementById('menu-result').style.display = 'flex';
+        }
+
+        function resetGameState() {
+            gameState.board = cloneBoard(initialBoard);
+            gameState.hands = { s: [], g: [] };
+            gameState.turn = 's';
+            gameState.selectedCell = null;
+            gameState.selectedHandPiece = null;
+            gameState.lastMove = null;
+            gameState.gameOver = false;
+            gameState.winner = null;
+            gameState.errorMessage = "";
+            gameState.positionHistoryMap = new Map();
+            gameState.moveHistory = [];
+            checkingPieces = [];
+            legalMovesCache = [];
+            isPromotingState = false;
+            pendingMove = null;
+            cpuThinking = false;
+            document.getElementById('cpu-thinking').style.display = 'none';
+            document.getElementById('promote-ui').style.display = 'none';
+        }
+
+        function startGame(mode, level) {
+            gameMode = mode;
+            cpuLevel = level || 1;
+            cpuPlayer = 'g'; // VS CPUでは常にプレイヤーが先手、CPUが後手を担当する
+
+            resetGameState();
+            recordPosition();
+
+            document.getElementById('menu-title').style.display = 'none';
+            document.getElementById('menu-level').style.display = 'none';
+            document.getElementById('menu-result').style.display = 'none';
+            document.getElementById('game-screen').style.display = 'block';
+
+            drawBoard();
+            runCpuTurn();
+        }
+
+        document.getElementById('btn-mode-pvp').addEventListener('click', () => startGame('pvp', null));
+        document.getElementById('btn-mode-cpu').addEventListener('click', () => showLevelMenu());
+
+        let selectedLevelForStart = 1;
+        [1, 2, 3].forEach(lv => {
+            document.getElementById(`btn-level-${lv}`).addEventListener('click', () => {
+                selectedLevelForStart = lv;
+                [1, 2, 3].forEach(l => document.getElementById(`btn-level-${l}`).classList.toggle('selected', l === lv));
+            });
+        });
+        document.getElementById(`btn-level-${selectedLevelForStart}`).classList.add('selected');
+
+        document.getElementById('btn-cpu-start').addEventListener('click', () => startGame('cpu', selectedLevelForStart));
+        document.getElementById('btn-level-back').addEventListener('click', () => showScreen('menu-title'));
+        document.getElementById('btn-play-again').addEventListener('click', () => startGame(gameMode, cpuLevel));
+        document.getElementById('btn-back-title').addEventListener('click', () => showTitleMenu());
+
+        // 初期表示はタイトルメニュー（対局はまだ開始しない）
+        showTitleMenu();
     </script>
 </body>
 </html>
