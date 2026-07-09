@@ -1440,7 +1440,32 @@
 
         // 指定局面(board/hands)における指定プレイヤーの全合法手を列挙。
         // 合法判定は既存の isValidMove / wouldBeInCheck / isValidDrop / wouldBeInCheckFromDrop / checkUchifuzume をそのまま利用する（新規の合法手ロジックは実装しない）。
-        function cpuGetAllLegalMoves(player, board, handsObj) {
+        // 合法手が極端に多い局面（闇イベント等で持ち駒が大量になった場合）向けに、
+        // 探索に使う候補手数を絞り込むヘルパー。捕獲手・盤上の移動を優先的に残し、
+        // 残り枠は打ち手（drop）から盤全体をカバーするよう均等にサンプリングする。
+        // ※ 合法手の判定自体は変えない。既存の合法手一覧から探索対象を間引くだけ。
+        function limitMovesForSearch(moves, cap) {
+            if (moves.length <= cap) return moves;
+
+            const captures = moves.filter(m => m.isCapture);
+            const boardMoves = moves.filter(m => !m.isCapture && m.kind === 'move');
+            const drops = moves.filter(m => m.kind === 'drop');
+
+            let result = captures.concat(boardMoves);
+            if (result.length >= cap) return result.slice(0, cap);
+
+            const remaining = cap - result.length;
+            if (drops.length <= remaining) {
+                return result.concat(drops);
+            }
+            const stride = drops.length / remaining;
+            for (let i = 0; i < remaining; i++) {
+                result.push(drops[Math.floor(i * stride)]);
+            }
+            return result;
+        }
+
+        function cpuGetAllLegalMoves(player, board, handsObj, dropSquareCap) {
             let moves = [];
             for (let y = 0; y < 9; y++) {
                 for (let x = 0; x < 9; x++) {
@@ -1466,19 +1491,38 @@
             }
 
             const handTypes = [...new Set(handsObj[player])];
-            handTypes.forEach(pieceType => {
-                for (let ty = 0; ty < 9; ty++) {
-                    for (let tx = 0; tx < 9; tx++) {
-                        if (board[ty][tx].type !== PIECES.EMPTY) continue;
+            if (handTypes.length > 0) {
+                let emptySquares = [];
+                for (let y = 0; y < 9; y++) {
+                    for (let x = 0; x < 9; x++) {
+                        if (board[y][x].type === PIECES.EMPTY) emptySquares.push({ x, y });
+                    }
+                }
+
+                // 打ち駒が大量にある局面（闇イベント等）で、駒の種類×空きマス数の掛け算が
+                // 爆発しないよう、探索用途では候補マスを盤全体からサンプリングして間引く。
+                // ※ 合法手判定（isValidDrop/wouldBeInCheckFromDrop/checkUchifuzume）自体は一切変更しない。
+                if (dropSquareCap && emptySquares.length > dropSquareCap) {
+                    const stride = emptySquares.length / dropSquareCap;
+                    const sampled = [];
+                    for (let i = 0; i < dropSquareCap; i++) {
+                        sampled.push(emptySquares[Math.floor(i * stride)]);
+                    }
+                    emptySquares = sampled;
+                }
+
+                for (const pieceType of handTypes) {
+                    for (const sq of emptySquares) {
+                        const tx = sq.x, ty = sq.y;
                         if (isValidDrop(tx, ty, pieceType, player, false, board)) {
                             if (!wouldBeInCheckFromDrop(tx, ty, pieceType, player, board)) {
-                                if (pieceType === PIECES.FU && checkUchifuzume(tx, ty, player, board, handsObj)) return;
+                                if (pieceType === PIECES.FU && checkUchifuzume(tx, ty, player, board, handsObj)) continue;
                                 moves.push({ kind: 'drop', toX: tx, toY: ty, pieceType, player, isCapture: false });
                             }
                         }
                     }
                 }
-            });
+            }
 
             return moves;
         }
@@ -1520,8 +1564,9 @@
 
         // ---- Lv1: 合法手からランダム（王手できる手があれば優先） ----
         function cpuChooseMoveLv1(player, board, handsObj) {
-            const moves = cpuGetAllLegalMoves(player, board, handsObj);
+            let moves = cpuGetAllLegalMoves(player, board, handsObj, 40);
             if (moves.length === 0) return null;
+            moves = limitMovesForSearch(moves, 120);
 
             const enemy = player === 's' ? 'g' : 's';
             const checkMoves = moves.filter(m => {
@@ -1533,10 +1578,37 @@
             return pool[Math.floor(Math.random() * pool.length)];
         }
 
+        // 「相手の次の一手で捕獲されうる最大の駒」だけを軽量に調べるための専用関数。
+        // 打ち駒（drop）は空きマスにしか打てない＝絶対に捕獲手にならないため、
+        // 盤上の駒の移動だけを見れば十分。持ち駒が大量にあっても影響を受けない。
+        function cpuGetCaptureThreats(player, board) {
+            let captures = [];
+            for (let y = 0; y < 9; y++) {
+                for (let x = 0; x < 9; x++) {
+                    const src = board[y][x];
+                    if (src.player !== player) continue;
+                    if (src.huge || src.hugeOrigin) continue;
+                    for (let ty = 0; ty < 9; ty++) {
+                        for (let tx = 0; tx < 9; tx++) {
+                            const target = board[ty][tx];
+                            if (target.type === PIECES.EMPTY || target.player === player) continue;
+                            if (isValidMove(x, y, tx, ty, src.type, player, board, src.promoted)) {
+                                if (!wouldBeInCheck(x, y, tx, ty, player, board)) {
+                                    captures.push({ toX: tx, toY: ty, capturedType: target.type });
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            return captures;
+        }
+
         // ---- Lv2: 駒得評価 + 1手読み（取れる駒は取る／王手優先／自玉の危険を回避） ----
         function cpuChooseMoveLv2(player, board, handsObj) {
-            const moves = cpuGetAllLegalMoves(player, board, handsObj);
+            let moves = cpuGetAllLegalMoves(player, board, handsObj, 45);
             if (moves.length === 0) return null;
+            moves = limitMovesForSearch(moves, 300);
 
             const enemy = player === 's' ? 'g' : 's';
             const perspective = (player === 's') ? 1 : -1;
@@ -1551,13 +1623,12 @@
                 if (isKingInCheck(enemy, nb)) score += 150;
 
                 // 1手読み：この手を指した後、相手の最善の捕獲でどれだけ損するかを見て自玉/駒の危険を回避
-                const enemyReplies = cpuGetAllLegalMoves(enemy, nb, nh);
+                // （打ち駒は捕獲手になり得ないため、盤上の駒の移動だけを軽量にチェックする）
+                const captureThreats = cpuGetCaptureThreats(enemy, nb);
                 let worstLoss = 0;
-                enemyReplies.forEach(r => {
-                    if (r.isCapture) {
-                        const capturedVal = cpuPieceScore(r.capturedType, nb[r.toY][r.toX].promoted);
-                        if (capturedVal > worstLoss) worstLoss = capturedVal;
-                    }
+                captureThreats.forEach(r => {
+                    const capturedVal = cpuPieceScore(r.capturedType, nb[r.toY][r.toX].promoted);
+                    if (capturedVal > worstLoss) worstLoss = capturedVal;
                 });
                 score -= worstLoss;
 
@@ -1574,15 +1645,17 @@
 
         // ---- Lv3: ミニマックス＋αβ探索（2手読み） ----
         const CPU_LV3_DEPTH = 2;
+        const CPU_LV3_MOVE_CAP = 20; // 各局面で読む候補手数の上限（打ち駒が大量にある局面での爆発を防ぐ）
 
         function cpuMinimax(board, handsObj, depth, alpha, beta, sideToMove) {
-            const moves = cpuGetAllLegalMoves(sideToMove, board, handsObj);
+            let moves = cpuGetAllLegalMoves(sideToMove, board, handsObj, 14);
 
             if (depth === 0 || moves.length === 0) {
                 return evaluateBoard(board, handsObj);
             }
 
             moves.sort((a, b) => (b.isCapture ? 1 : 0) - (a.isCapture ? 1 : 0));
+            moves = limitMovesForSearch(moves, CPU_LV3_MOVE_CAP);
 
             const enemy = sideToMove === 's' ? 'g' : 's';
             const maximizing = (sideToMove === 's');
@@ -1609,10 +1682,11 @@
         }
 
         function cpuChooseMoveLv3(player, board, handsObj) {
-            const moves = cpuGetAllLegalMoves(player, board, handsObj);
+            let moves = cpuGetAllLegalMoves(player, board, handsObj, 20);
             if (moves.length === 0) return null;
 
             moves.sort((a, b) => (b.isCapture ? 1 : 0) - (a.isCapture ? 1 : 0));
+            moves = limitMovesForSearch(moves, CPU_LV3_MOVE_CAP * 2);
 
             const enemy = player === 's' ? 'g' : 's';
             const perspective = (player === 's') ? 1 : -1;
